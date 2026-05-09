@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Numerics;
-using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Interface.Utility;
 using Dalamud.Utility.Signatures;
 using FFXIVClientStructs.FFXIV.Client.System.String;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using Dalamud.Bindings.ImGui;
-using SimpleTweaksPlugin.ExtraPayloads;
+using Lumina.Text;
 using SimpleTweaksPlugin.TweakSystem;
 using SimpleTweaksPlugin.Utility;
 
@@ -29,7 +28,7 @@ public unsafe class CustomTimestampFormat : ChatTweaks.SubTweak {
     [TweakHook, Signature("E9 ?? ?? ?? ?? 7D 20", DetourName = nameof(FormatTextDetour))]
     private HookWrapper<ApplyTextFormatDelegate>? applyTextFormatHook;
 
-    public Configs Config { get; private set; }
+    [TweakConfig] public Configs Config { get; private set; }
 
     protected void DrawConfig(ref bool hasChanged) {
         hasChanged |= ImGui.Checkbox("Use Server Time", ref Config.UseServerTime);
@@ -74,15 +73,15 @@ public unsafe class CustomTimestampFormat : ChatTweaks.SubTweak {
 
             if (str != null) {
                 if (Config.DoColor) {
-                    var seStr = new SeString();
-                    seStr.Append(new ColorPayload(Config.Color));
-                    seStr.Append((Config.UseServerTime ? time.DateTime : time.LocalDateTime).ToString(Config.Format));
-                    seStr.Append(new ColorEndPayload());
-                    var bytes = seStr.EncodeWithNullTerminator();
-                    if (bytes.Length == 0 || bytes[0] == 0) {
+                    var builder = new SeStringBuilder();
+                    builder.PushColorRgba(Config.Color.AsVector4());
+                    builder.Append((Config.UseServerTime ? time.DateTime : time.LocalDateTime).ToString(Config.Format));
+                    builder.PopColor();
+                    var seStr = builder.ToReadOnlySeString();
+                    if (seStr.IsEmpty) {
                         str->SetString(string.Empty);
                     } else {
-                        str->SetString(bytes);
+                        str->SetString(seStr);
                     }
                 } else {
                     var text = (Config.UseServerTime ? time.DateTime : time.LocalDateTime).ToString(Config.Format);
