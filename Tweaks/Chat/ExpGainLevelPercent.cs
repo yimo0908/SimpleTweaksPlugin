@@ -1,14 +1,11 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions;
 using Dalamud.Game.Chat;
 using Dalamud.Game.Text;
-using Dalamud.Game.Text.SeStringHandling;
-using Dalamud.Game.Text.SeStringHandling.Payloads;
+using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Game.InstanceContent;
-using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using Lumina.Excel.Sheets;
+using Lumina.Text;
 using SimpleTweaksPlugin.TweakSystem;
 
 namespace SimpleTweaksPlugin.Tweaks.Chat;
@@ -19,74 +16,50 @@ namespace SimpleTweaksPlugin.Tweaks.Chat;
 [TweakReleaseVersion("1.10.8.0")]
 [Changelog("1.10.10.0", "Added support for Occult Crescent's phantom jobs.")]
 [Changelog("1.10.10.0", "Added support for earning experience on jobs other than current job.")]
-public unsafe partial class ExpGainLevelPercent : ChatTweaks.SubTweak {
+public unsafe class ExpGainLevelPercent : ChatTweaks.SubTweak {
     private const XivChatType ExperienceGainedChatMessageType = (XivChatType)2112;
 
-    public Dictionary<string, Func<int>> ExpToNextMap = new();
-
-    protected override void Enable() {
-        Service.Chat.ChatMessage += OnChatMessage;
-
-        foreach (var cj in Service.Data.GetExcelSheet<ClassJob>()) {
-            if (ExpToNextMap.ContainsKey(cj.Name.ExtractText().ToLowerInvariant())) continue;
-            ExpToNextMap.TryAdd(cj.Name.ExtractText().ToLowerInvariant(), () => {
-                var player = UIState.Instance()->PlayerState;
-                var playerJobLevel = player.ClassJobLevels[cj.ExpArrayIndex];
-                return Service.Data.GetExcelSheet<ParamGrow>().GetRow((uint)playerJobLevel).ExpToNext;
-            });
-        }
-
-        foreach (var pj in Service.Data.GetExcelSheet<MKDSupportJob>()) {
-            if (ExpToNextMap.ContainsKey(pj.Name.ExtractText().ToLowerInvariant())) continue;
-            ExpToNextMap.TryAdd(pj.Name.ExtractText().ToLowerInvariant(), () => {
-                var state = PublicContentOccultCrescent.GetState();
-                if (state == null) return 0;
-                var level = state->SupportJobLevels[(int)pj.RowId];
-                if (level == 0) return 0;
-                return (int) Service.Data.GetSubrowExcelSheet<MKDGrowDataSJob>().GetSubrow(pj.RowId, level).Unknown0;
-            });
-        }
-        
+    private void AppendPercent(ILogMessage logMessage, float gainedExp, float expToNext) {
+        logMessage.PreventOriginal();
+        var str = new SeStringBuilder();
+        var pctOfNextLevel = gainedExp / expToNext * 100.0f;
+        str.Append(logMessage.FormatLogMessageForDebugging());
+        str.Append($" ({MathF.Round(pctOfNextLevel, 3)}%)");
+        Service.Chat.Print(new XivChatEntry {
+            Type = ExperienceGainedChatMessageType,
+            Message = str.ToReadOnlySeString().ToDalamudString()
+        });
     }
 
-    protected override void Disable() {
-        Service.Chat.ChatMessage -= OnChatMessage;
+    [LogMessage(589)]
+    private void OnLogMessage(ILogMessage logMessage) {
+        try {
+            if (!logMessage.TryGetIntParameter(0, out var classJobId) || classJobId < 0 || !logMessage.TryGetIntParameter(1, out var gainedExp) || gainedExp <= 0) return;
+            var classJob = classJobId == 0 ? Service.PlayerState.ClassJob.Value : Service.Data.GetExcelSheet<ClassJob>().GetRow((uint)classJobId);
+            var playerJobLevel = Service.PlayerState.GetClassJobLevel(classJob);
+            var expToNext = Service.Data.GetExcelSheet<ParamGrow>().GetRow((uint)playerJobLevel).ExpToNext;
+            if (expToNext <= 0) return;
+            AppendPercent(logMessage, gainedExp, expToNext);
+        } catch (Exception ex) {
+            SimpleLog.Error(ex, "Error parsing EXP Gained");
+        }
     }
 
-    [GeneratedRegex(@"You gain ([0-9,]+) ?(?:\(\+[0-9,]+%\) )?([a-zA-Z ]+? )?experience points\.")]
-    private static partial Regex ExpGainedRegex();
-    
-    private readonly Regex expDropRegex = ExpGainedRegex();
-
-    private void OnChatMessage(IHandleableChatMessage chatMessage) {
-        // Don't modify messages if its not in the experience gain chat channel.
-        if (chatMessage.LogKind != ExperienceGainedChatMessageType) return;
-        
-        var match = expDropRegex.Match(chatMessage.Message.TextValue);
-        if (!match.Success) return;
-        
-        var classJobName = match.Groups[2].ToString().Trim();
-
-        if (string.IsNullOrWhiteSpace(classJobName)) {
-            classJobName = Service.Objects.LocalPlayer?.ClassJob.Value.Name.ExtractText() ?? string.Empty;
+    [LogMessage(10953)]
+    private void OnLogMessagePhantomExp(ILogMessage logMessage) {
+        try {
+            if (!logMessage.TryGetIntParameter(0, out var phantomJobId) || phantomJobId < 0 || !logMessage.TryGetIntParameter(1, out var gainedExp) || gainedExp <= 0) return;
+            var queueEntry = (LogMessageQueueItem*)logMessage.Address;
+            if (queueEntry->SourceKind != EntityRelationKind.LocalPlayer) return;
+            var state = PublicContentOccultCrescent.GetState();
+            if (state == null) return;
+            var level = state->SupportJobLevels[phantomJobId];
+            if (level == 0) return;
+            var expToNext = Service.Data.GetSubrowExcelSheet<MKDGrowDataSJob>().GetSubrow((uint)phantomJobId, level).Unknown0;
+            if (expToNext <= 0) return;
+            AppendPercent(logMessage, gainedExp, expToNext);
+        } catch (Exception ex) {
+            SimpleLog.Error(ex, "Error parsing Phantom EXP Gained");
         }
-
-        if (!ExpToNextMap.TryGetValue(classJobName.ToLowerInvariant(), out var getNextExpFunc)) {
-            return;
-        }
-        
-        // Parse gained exp from message
-        var gainedExpStr = match.Groups[1].ToString().Replace(",", string.Empty);
-        var gainedExp = int.Parse(gainedExpStr);
-        
-        // Get next level exp threshold
-        var expToNext = getNextExpFunc();
-        
-        if (expToNext <= 0) return;
-        
-        // Calculate gained exp percentage of next level
-        var pctOfNextLevel = Math.Round((double)gainedExp / expToNext * 100.0f, 2);
-        
-        chatMessage.Message = new SeString(chatMessage.Message.Payloads.Append(new TextPayload($" ({pctOfNextLevel}%)")).ToList());
     }
 }
