@@ -641,14 +641,14 @@ public abstract class BaseTweak {
 
         foreach (var (field, attribute) in this.GetFieldsWithAttribute<TweakHookAttribute>()) {
             if (attribute == null) continue;
-            if (attribute.AddressType != null && field.GetValue(this) is null) {
+            if (field.GetValue(this) is null) {
                 SimpleLog.Verbose($"Setup Tweak Hook: [{Name}] {field.Name} for {attribute.AddressType.Name}.{attribute.AddressName}");
 
                 if (!(field.FieldType.IsGenericType && field.FieldType.GetGenericTypeDefinition() == typeof(HookWrapper<>))) {
 #if TEST
                     throw new Exception($"Tweak Hook for named address not supported on {field.FieldType}");
 #else
-                    SimpleLog.Error($"Tweak Hook for named address not supported on {field.FieldType}");
+                    Plugin.Error(this, new Exception($"Tweak Hook for named address not supported on {field.FieldType}"));
                     continue;
 #endif
                 }
@@ -663,7 +663,7 @@ public abstract class BaseTweak {
                         
                         SimpleLog.Verbose($"    {attribute.AddressType.Name}.VirtualTable.{attribute.AddressName} = 0x{hookAddress:X}");
                     } catch (Exception ex) {
-                        SimpleLog.Error(ex.Message);
+                        if (!attribute.AllowFailure) Plugin.Error(this, ex);
                     }
 #endif
                 } else {
@@ -673,7 +673,8 @@ public abstract class BaseTweak {
 #if TEST
                     throw new Exception($"Failed to find {attribute.AddressType}.Addresses");
 #else
-                        SimpleLog.Error($"Failed to find {attribute.AddressType}.Addresses");
+                        
+                        if (!attribute.AllowFailure) Plugin.Error(this, new Exception($"Failed to find {attribute.AddressType}.Addresses"));
                         continue;
 #endif
                     }
@@ -685,7 +686,7 @@ public abstract class BaseTweak {
 #if TEST
                     throw new Exception($"Failed to find {attribute.AddressType.Name}.Addresses.{attribute.AddressName}");
 #else
-                        SimpleLog.Error($"Failed to find {attribute.AddressType.Name}.Addresses.{attribute.AddressName}");
+                        if (!attribute.AllowFailure) Plugin.Error(this, new Exception($"Failed to find {attribute.AddressType.Name}.Addresses.{attribute.AddressName}"));
                         continue;
 #endif
                     }
@@ -696,7 +697,7 @@ public abstract class BaseTweak {
 #if TEST
                     throw new Exception($"{attribute.AddressType.Name}.Addresses.{attribute.AddressName} is not an Address?");
 #else
-                        SimpleLog.Error($"{attribute.AddressType.Name}.Addresses.{attribute.AddressName} is not an Address?");
+                        if (!attribute.AllowFailure) Plugin.Error(this, new Exception($"{attribute.AddressType.Name}.Addresses.{attribute.AddressName} is not an Address?"));
                         continue;
 #endif
                     }
@@ -706,6 +707,7 @@ public abstract class BaseTweak {
                 }
 
                 if (hookAddress == 0) {
+                    if (!attribute.AllowFailure) Plugin.Error(this, new Exception($"Failed to find address for '{attribute.AddressType.Name}.{attribute.AddressName}'"));
                     continue;
                 }
 
@@ -714,9 +716,10 @@ public abstract class BaseTweak {
 
                 Delegate? detour;
 
-                if (attribute.DetourName == null) {
+                if (string.IsNullOrEmpty(attribute.DetourName)) {
                     var matches = GetType().GetMethods(Flags).Select(method => method.IsStatic ? Delegate.CreateDelegate(hookDelegateType, method, false) : Delegate.CreateDelegate(hookDelegateType, this, method, false)).Where(del => del != null).ToArray();
                     if (matches.Length != 1) {
+                        if (!attribute.AllowFailure) Plugin.Error(this, new Exception($"Failed to find suitable detour for '{attribute.AddressType.Name}.{attribute.AddressName}'"));
                         continue;
                     }
 
@@ -724,11 +727,13 @@ public abstract class BaseTweak {
                 } else {
                     var method = this.GetType().GetMethod(attribute.DetourName, Flags);
                     if (method == null) {
+                        if (!attribute.AllowFailure) Plugin.Error(this, new Exception($"Failed to find '{GetType().Name}.{attribute.DetourName}' for '{field.Name}'"));
                         continue;
                     }
 
                     var del = method.IsStatic ? Delegate.CreateDelegate(hookDelegateType, method, false) : Delegate.CreateDelegate(hookDelegateType, this, method, false);
                     if (del == null) {
+                        if (!attribute.AllowFailure) Plugin.Error(this, new Exception($"Failed to create detour to '{GetType().Name}.{attribute.DetourName}' for '{field.Name}'"));
                         continue;
                     }
 
@@ -743,7 +748,7 @@ public abstract class BaseTweak {
 #if TEST
                     throw new Exception($"{GetType().Name}: could not find Hook<{hookDelegateType.Name}>.FromAddress");
 #else
-                    SimpleTweaksPlugin.Plugin.Error(new Exception($"{GetType().Name}: could not find Hook<{hookDelegateType.Name}>.FromAddress"));
+                    if (!attribute.AllowFailure) Plugin.Error(this, new Exception($"{GetType().Name}: could not find Hook<{hookDelegateType.Name}>.FromAddress"));
                     continue;
 #endif
                 }
@@ -756,7 +761,7 @@ public abstract class BaseTweak {
 #if TEST
                     throw new Exception($"{GetType().Name}: could not find could not find HookWrapper<{hookDelegateType.Name}> constructor");
 #else
-                    SimpleTweaksPlugin.Plugin.Error(new Exception($"{GetType().Name}: could not find could not find HookWrapper<{hookDelegateType.Name}> constructor"));
+                    if (!attribute.AllowFailure) Plugin.Error(this, new Exception($"{GetType().Name}: could not find could not find HookWrapper<{hookDelegateType.Name}> constructor"));
                     continue;
 #endif
                 }
