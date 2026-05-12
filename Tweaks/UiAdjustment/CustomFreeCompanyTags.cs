@@ -31,7 +31,7 @@ namespace SimpleTweaksPlugin.Tweaks.UiAdjustment;
 [Changelog("1.8.9.0", "Added an icon viewer for supported icons.")]
 [Changelog("1.8.9.1", "Fix some issues with glow colours.")]
 [Changelog("1.8.9.2", "Fixed icon-only tags not displaying.")]
-[Changelog(UnreleasedVersion, "Added ability to give individual characters a custom FC tag.")]
+[Changelog("1.15.0.1", "Added ability to give individual characters a custom FC tag.")]
 public unsafe class CustomFreeCompanyTags : UiAdjustments.SubTweak {
     public class Configs : TweakConfig {
         public Dictionary<ulong, TagCustomization> PersonalCustomizations = new();
