@@ -50,10 +50,6 @@ public static class Extensions {
         }
     }
 
-    public static SeString GetSeString(this Utf8String utf8String) {
-        return Common.ReadSeString(utf8String);
-    }
-
     public static int GetStableHashCode(this string str)
     {
         unchecked

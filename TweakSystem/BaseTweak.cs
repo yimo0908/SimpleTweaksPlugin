@@ -25,7 +25,7 @@ namespace SimpleTweaksPlugin.TweakSystem;
 
 public abstract class BaseTweak {
     protected BaseTweak() { }
-    internal BaseTweak(string name) => tweakNameAttribute = new TweakNameAttribute(name);
+    internal BaseTweak(string name) => TweakNameAttribute = new TweakNameAttribute(name);
 
     protected SimpleTweaksPlugin Plugin;
     protected IDalamudPluginInterface PluginInterface;
@@ -849,82 +849,19 @@ public abstract class BaseTweak {
 
     #region Attribute Handles
 
-    private TweakNameAttribute tweakNameAttribute;
-
-    protected TweakNameAttribute TweakNameAttribute {
-        get {
-            if (tweakNameAttribute != null) return tweakNameAttribute;
-            tweakNameAttribute = GetType().GetCustomAttribute<TweakNameAttribute>() ?? new TweakNameAttribute($"{GetType().Name}");
-            return tweakNameAttribute;
-        }
-    }
-    
-    private TweakKeyAttribute tweakKeyAttribute;
-
-    protected TweakKeyAttribute TweakKeyAttribute {
-        get {
-            if (tweakKeyAttribute != null) return tweakKeyAttribute;
-            tweakKeyAttribute = GetType().GetCustomAttribute<TweakKeyAttribute>() ?? new TweakKeyAttribute($"{GetType().Name}");
-            return tweakKeyAttribute;
-        }
-    }
-
-    private TweakDescriptionAttribute tweakDescriptionAttribute;
-
-    protected TweakDescriptionAttribute TweakDescriptionAttribute {
-        get {
-            if (tweakDescriptionAttribute != null) return tweakDescriptionAttribute;
-            tweakDescriptionAttribute = GetType().GetCustomAttribute<TweakDescriptionAttribute>() ?? TweakDescriptionAttribute.Default;
-            return tweakDescriptionAttribute;
-        }
-    }
-
-    private TweakAuthorAttribute tweakAuthorAttribute;
-
-    protected TweakAuthorAttribute TweakAuthorAttribute {
-        get {
-            if (tweakAuthorAttribute != null) return tweakAuthorAttribute;
-            tweakAuthorAttribute = GetType().GetCustomAttribute<TweakAuthorAttribute>() ?? TweakAuthorAttribute.Default;
-            return tweakAuthorAttribute;
-        }
-    }
-
-    private TweakVersionAttribute tweakVersionAttribute;
-
-    protected TweakVersionAttribute TweakVersionAttribute {
-        get {
-            if (tweakVersionAttribute != null) return tweakVersionAttribute;
-            tweakVersionAttribute = GetType().GetCustomAttribute<TweakVersionAttribute>() ?? new TweakVersionAttribute(1);
-            return tweakVersionAttribute;
-        }
-    }
-
-    private TweakAutoConfigAttribute tweakAutoConfigAttribute;
-
-    protected TweakAutoConfigAttribute TweakAutoConfigAttribute {
-        get {
-            if (tweakAutoConfigAttribute != null) return tweakAutoConfigAttribute;
-            tweakAutoConfigAttribute = GetType().GetCustomAttribute<TweakAutoConfigAttribute>() ?? NoAutoConfig.Singleton;
-            return tweakAutoConfigAttribute;
-        }
-    }
-
-    private TweakTagsAttribute tweakTagsAttribute;
-
-    protected TweakTagsAttribute TweakTagsAttribute {
-        get {
-            if (tweakDescriptionAttribute != null) return tweakTagsAttribute;
-            tweakTagsAttribute = GetType().GetCustomAttribute<TweakTagsAttribute>() ?? new TweakTagsAttribute();
-            return tweakTagsAttribute;
-        }
-    }
+    protected TweakNameAttribute TweakNameAttribute => field ??= GetType().GetCustomAttribute<TweakNameAttribute>() ?? new TweakNameAttribute($"{GetType().Name}");
+    protected TweakKeyAttribute TweakKeyAttribute => field ??= GetType().GetCustomAttribute<TweakKeyAttribute>() ?? new TweakKeyAttribute($"{GetType().Name}");
+    protected TweakDescriptionAttribute TweakDescriptionAttribute => field ??= GetType().GetCustomAttribute<TweakDescriptionAttribute>() ?? TweakDescriptionAttribute.Default;
+    protected TweakAuthorAttribute TweakAuthorAttribute => field ??= GetType().GetCustomAttribute<TweakAuthorAttribute>() ?? TweakAuthorAttribute.Default;
+    protected TweakVersionAttribute TweakVersionAttribute => field ??= GetType().GetCustomAttribute<TweakVersionAttribute>() ?? new TweakVersionAttribute(1);
+    protected TweakAutoConfigAttribute TweakAutoConfigAttribute => field ??= GetType().GetCustomAttribute<TweakAutoConfigAttribute>() ?? NoAutoConfig.Singleton;
+    protected TweakTagsAttribute TweakTagsAttribute => field ??= GetType().GetCustomAttribute<TweakTagsAttribute>() ?? new TweakTagsAttribute();
 
     public HashSet<string> Categories {
         get {
             if (field != null) return field;
-
+            field = [];
             void HandleAttributes(IEnumerable<TweakCategoryAttribute> attributes) {
-                field = new HashSet<string>();
                 foreach (var attr in attributes) {
                     foreach (var v in attr.Categories) {
                         field.Add(v);
@@ -937,7 +874,7 @@ public abstract class BaseTweak {
                 HandleAttributes(i.GetCustomAttributes<TweakCategoryAttribute>(true));
             }
 
-            if (Experimental) field?.Add($"{TweakCategory.Experimental}");
+            if (Experimental) field.Add($"{TweakCategory.Experimental}");
 
             return field ?? [];
         }

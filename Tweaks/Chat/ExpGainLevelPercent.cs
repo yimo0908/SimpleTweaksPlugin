@@ -31,7 +31,7 @@ public unsafe class ExpGainLevelPercent : ChatTweaks.SubTweak {
         });
     }
 
-    [LogMessage(589)]
+    [LogMessage(588, 589)]
     private void OnLogMessage(ILogMessage logMessage) {
         try {
             if (!logMessage.TryGetIntParameter(0, out var classJobId) || classJobId < 0 || !logMessage.TryGetIntParameter(1, out var gainedExp) || gainedExp <= 0) return;
