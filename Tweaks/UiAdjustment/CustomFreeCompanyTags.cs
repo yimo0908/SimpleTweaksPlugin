@@ -139,7 +139,7 @@ public unsafe class CustomFreeCompanyTags : UiAdjustments.SubTweak {
                                             break;
                                         }
                                         case "<level>": {
-                                            builder.Append(battleChara->Level);
+                                            builder.Append($"{battleChara->Level}");
                                             break;
                                         }
                                         case "<fctag>": {
