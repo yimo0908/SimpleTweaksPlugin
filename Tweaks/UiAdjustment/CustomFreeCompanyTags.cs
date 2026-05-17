@@ -233,7 +233,7 @@ public unsafe class CustomFreeCompanyTags : UiAdjustments.SubTweak {
                                                 resetHexForegrond = true;
                                             } else {
                                                 if (ushort.TryParse(k, out var colorKey)) {
-                                                    builder.PushColorRgba(colorKey);
+                                                    builder.PushColorType(colorKey);
                                                     resetForeground = colorKey != 0;
                                                 } else {
                                                     builder.Append(cText);
