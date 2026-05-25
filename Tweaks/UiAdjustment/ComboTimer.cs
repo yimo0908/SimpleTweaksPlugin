@@ -17,7 +17,8 @@ namespace SimpleTweaksPlugin.Tweaks.UiAdjustment;
 [TweakAutoConfig]
 public unsafe class ComboTimer : UiAdjustments.SubTweak {
     private readonly Dictionary<uint, byte> comboActions = new() {
-        [7526] = 80,
+        [3556] = 64, // Dragoon, Wheeling Thrust -> Drakesbane
+        [7526] = 80, // Red Mage, Verholy -> Scorch
     };
     private bool usingScreenText;
 
