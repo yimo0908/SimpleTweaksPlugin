@@ -35,6 +35,7 @@ public unsafe class ExpGainLevelPercent : ChatTweaks.SubTweak {
     private void OnLogMessage(ILogMessage logMessage) {
         try {
             if (!logMessage.TryGetIntParameter(0, out var classJobId) || classJobId < 0 || !logMessage.TryGetIntParameter(1, out var gainedExp) || gainedExp <= 0) return;
+            if (logMessage.SourceEntity is not { IsPlayer: true } e || e.HomeWorldId != Service.PlayerState.HomeWorld.RowId || !e.Name.ExtractText().Equals(Service.PlayerState.CharacterName, StringComparison.InvariantCultureIgnoreCase)) return;
             var classJob = classJobId == 0 ? Service.PlayerState.ClassJob.Value : Service.Data.GetExcelSheet<ClassJob>().GetRow((uint)classJobId);
             var playerJobLevel = Service.PlayerState.GetClassJobLevel(classJob);
             var expToNext = Service.Data.GetExcelSheet<ParamGrow>().GetRow((uint)playerJobLevel).ExpToNext;
