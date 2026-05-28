@@ -7,6 +7,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Components;
@@ -15,6 +16,7 @@ using Dalamud.Plugin;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
+using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using InteropGenerator.Runtime;
 using Newtonsoft.Json;
 using SimpleTweaksPlugin.Events;
@@ -247,14 +249,49 @@ public abstract class BaseTweak {
         }
     }
 
-    public virtual void RequestSaveConfig() {
+
+    private bool savingConfig = false;
+    private CancellationTokenSource? saveDebounceCts;
+    private PropertyInfo? configProperty;
+    
+    public virtual void RequestSaveConfig(bool forceImmediate = false) {
         try {
 #if DEBUG
-            SimpleLog.Log($"Request Save Config: {Name}");
+            SimpleLog.Verbose($"Request Save Config: {Name}");
 #endif
-            var configObj = this.GetType().GetProperties().FirstOrDefault(p => p.PropertyType.IsSubclassOf(typeof(TweakConfig)))?.GetValue(this);
-            if (configObj == null) return;
-            SaveConfig((TweakConfig)configObj);
+            
+            void SaveAction() {
+                configProperty ??= GetType().GetProperties(
+                    BindingFlags.Instance |
+                    BindingFlags.Public |
+                    BindingFlags.NonPublic
+                ).FirstOrDefault(p => p.PropertyType.IsSubclassOf(typeof(TweakConfig)));
+                
+                var configObj = configProperty?.GetValue(this);
+                if (configObj == null) return;
+                SaveConfig((TweakConfig)configObj);
+            }
+
+            saveDebounceCts?.Cancel();
+            saveDebounceCts = new CancellationTokenSource();
+            
+            if (forceImmediate) {
+                SaveAction();
+                return;
+            }
+            
+            var wasImmediate = false;
+            
+            if (!savingConfig) {
+                savingConfig = true;
+                wasImmediate = true;
+                SaveAction();
+            }
+            
+            Service.Framework.RunOnTick(() => {
+                if (!wasImmediate) SaveAction();
+                savingConfig = false;
+            }, delay: TimeSpan.FromSeconds(2), cancellationToken: saveDebounceCts.Token);
         } catch (Exception ex) {
             SimpleLog.Error($"Failed to save config for tweak: {this.Name}");
             SimpleLog.Error(ex);
