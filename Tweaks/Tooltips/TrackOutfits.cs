@@ -25,6 +25,7 @@ namespace SimpleTweaksPlugin.Tweaks.Tooltips;
 [TweakAutoConfig]
 [Changelog("1.14.0.0", "Fixed HQ outfits not working.")]
 [Changelog("1.15.0.5", "Added option to ignore quality when checking if an item exists as part of an outfit.")]
+[Changelog("1.15.0.7", "Fixed some key items incorrectly indicating they belong to an outfit.")]
 public unsafe class TrackOutfits : TooltipTweaks.SubTweak
 {
     [TweakHook(typeof(UIState), nameof(UIState.IsItemActionUnlocked), nameof(IsItemActionUnlockedDetour))]
@@ -112,6 +113,7 @@ public unsafe class TrackOutfits : TooltipTweaks.SubTweak
 
     public override void OnGenerateItemTooltip(NumberArrayData* numberArrayData, StringArrayData* stringArrayData)
     {
+        if (Item.ItemId >= 2000000) return;
         var baseId = ItemUtil.GetBaseId((Item.ItemId % 1000000) + (Item.Flags.HasFlag(InventoryItem.ItemFlags.HighQuality) ? 1000000U : 0U));
         if (GetOutfits(baseId.ItemId) is { Length: > 0 } outfits) {
 
